@@ -251,6 +251,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         pre { background: #f4f4f4; padding: 1rem; white-space: pre-wrap; border-radius: 6px; }
         button { padding: .5rem 1rem; cursor: pointer; }
         small { color: #666; }
+        #cookie-banner { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #ccc;
+            box-shadow: 0 -2px 8px rgba(0,0,0,.1); padding: 1rem; text-align: center; z-index: 1000; }
+        #cookie-banner[hidden] { display: none; }
+        #cookie-banner p { max-width: 960px; margin: 0 auto .8rem; }
         footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ccc; font-size: .85rem; color: #666; }
         @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
     </style>
@@ -397,11 +401,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <footer>
     <p>
         <strong>Hinweis:</strong> Dies ist kein offizielles Angebot des Deutschen Schachbundes (DSB) oder der FIDE,
-        sondern ein Spaßprojekt des Schachvereins Balingen. Es wird keinerlei Gewährleistung oder Haftung
+        sondern ein Spaßprojekt des <a href="https://www.svbalingen.de/" target="_blank" rel="noopener">Schachvereins Balingen</a>. Es wird keinerlei Gewährleistung oder Haftung
         für Richtigkeit, Vollständigkeit oder Verfügbarkeit übernommen.
         <?php if (TEST_MODE): ?>Es wird keine E-Mail verschickt.<?php endif; ?>
     </p>
+    <p>
+        Quellcode: <a href="https://github.com/colaholiker/FideId-Create-From" target="_blank" rel="noopener">github.com/colaholiker/FideId-Create-From</a>
+        · <a href="#" onclick="showCookieBanner(); return false;">Cookie-Einstellungen</a>
+    </p>
 </footer>
+
+<div id="cookie-banner" hidden>
+    <p>
+        Wir verwenden Cookies und das Analyse-Tool Matomo (selbst gehostet beim Schachverein Balingen),
+        um die Nutzung dieser Seite anonymisiert auszuwerten. Die Auswertung erfolgt nur mit deiner Zustimmung.
+    </p>
+    <button type="button" onclick="setCookieConsent(true)">Akzeptieren</button>
+    <button type="button" onclick="setCookieConsent(false)">Ablehnen</button>
+</div>
+
+<script>
+    const CONSENT_KEY = 'matomo-consent';
+
+    function loadMatomo() {
+        if (window._paq) {
+            // Bereits geladen (z. B. nach vorheriger Ablehnung) – Tracking wieder aktivieren
+            window._paq.push(['forgetUserOptOut']);
+            return;
+        }
+        // Matomo
+        var _paq = window._paq = window._paq || [];
+        /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function() {
+            var u="https://matomo.svbalingen.de/";
+            _paq.push(['setTrackerUrl', u+'matomo.php']);
+            _paq.push(['setSiteId', '6']);
+            var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+            g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+        })();
+        // End Matomo Code
+    }
+
+    function showCookieBanner() {
+        document.getElementById('cookie-banner').hidden = false;
+    }
+
+    function setCookieConsent(accepted) {
+        localStorage.setItem(CONSENT_KEY, accepted ? 'yes' : 'no');
+        document.getElementById('cookie-banner').hidden = true;
+        if (accepted) {
+            loadMatomo();
+        } else if (window._paq) {
+            // Bereits geladenes Tracking beenden und Matomo-Cookies entfernen
+            window._paq.push(['optUserOut']);
+            window._paq.push(['deleteCookies']);
+        }
+    }
+
+    const consent = localStorage.getItem(CONSENT_KEY);
+    if (consent === 'yes') loadMatomo();
+    else if (consent === null) showCookieBanner();
+</script>
 
 </body>
 </html>
