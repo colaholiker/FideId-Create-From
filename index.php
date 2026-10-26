@@ -407,6 +407,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </p>
     <p>
         Quellcode: <a href="https://github.com/colaholiker/FideId-Create-From" target="_blank" rel="noopener">github.com/colaholiker/FideId-Create-From</a>
+        · <a href="https://www.svbalingen.de/impressum" target="_blank" rel="noopener">Impressum</a>
+        · <a href="https://www.svbalingen.de/datenschutzerklaerung" target="_blank" rel="noopener">Datenschutzerklärung</a>
         · <a href="#" onclick="showCookieBanner(); return false;">Cookie-Einstellungen</a>
     </p>
 </footer>
@@ -415,6 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p>
         Wir verwenden Cookies und das Analyse-Tool Matomo (selbst gehostet beim Schachverein Balingen),
         um die Nutzung dieser Seite anonymisiert auszuwerten. Die Auswertung erfolgt nur mit deiner Zustimmung.
+        Mehr dazu in der <a href="https://www.svbalingen.de/datenschutzerklaerung" target="_blank" rel="noopener">Datenschutzerklärung</a>.
     </p>
     <button type="button" onclick="setCookieConsent(true)">Akzeptieren</button>
     <button type="button" onclick="setCookieConsent(false)">Ablehnen</button>
