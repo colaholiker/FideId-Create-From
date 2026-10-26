@@ -2,7 +2,7 @@
 /**
  * Formular zur Beantragung einer FIDE-ID beim Deutschen Schachbund.
  * Format laut https://www.schachbund.de/fide-identifikationsnummer.html:
- *   Nachname, Vorname[, Dr.]; JJJJ-MM-TT; M/F
+ *   Nachname, Vorname[, Titel]; JJJJ-MM-TT; M/F
  */
 
 declare(strict_types=1);
@@ -26,7 +26,7 @@ function h(?string $s): string
 }
 
 /** Umlaute ersetzen, sonstige diakritische Zeichen ersatzlos entfernen. */
-function transliterate(string $s): string
+function transliterate(string $s, string $extraAllowed = ''): string
 {
     $s = strtr(trim($s), [
         'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss', 'ẞ' => 'SS',
@@ -38,15 +38,22 @@ function transliterate(string $s): string
         $s = (string)iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
     }
     // Alles außer Buchstaben, Leerzeichen, Bindestrich und Apostroph entfernen
-    $s = preg_replace("/[^A-Za-z \\-']/", '', $s);
+    $s = preg_replace("/[^A-Za-z \\-'" . preg_quote($extraAllowed, '/') . ']/', '', $s);
     return preg_replace('/\s+/', ' ', trim($s));
+}
+
+/** Titel wie Namen behandeln, zusätzlich Punkte erlauben (z. B. "Dr.", "Prof. Dr."). */
+function transliterateTitle(string $s): string
+{
+    return transliterate($s, '.');
 }
 
 function formatPlayer(array $p): string
 {
     $name = transliterate($p['nachname']) . ', ' . transliterate($p['vorname']);
-    if (!empty($p['dr'])) {
-        $name .= ', Dr.';
+    $titel = transliterateTitle($p['titel']);
+    if ($titel !== '') {
+        $name .= ', ' . $titel;
     }
     return $name . '; ' . $p['geburtsdatum'] . '; ' . $p['geschlecht'];
 }
@@ -80,7 +87,7 @@ $form = [
     'verein'        => '',
     'turnier'       => '',
     'bemerkung'     => '',
-    'players'       => [['nachname' => '', 'vorname' => '', 'dr' => '', 'geburtsdatum' => '', 'geschlecht' => '', 'dsb' => '1']],
+    'players'       => [['nachname' => '', 'vorname' => '', 'titel' => '', 'geburtsdatum' => '', 'geschlecht' => '', 'dsb' => '1']],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -90,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($form['antragsteller'] === '') $errors[] = 'Bitte den Namen des Antragstellers angeben.';
     if (!filter_var($form['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Bitte eine gültige E-Mail-Adresse angeben.';
-    if ($form['turnier'] === '') $errors[] = 'Bitte das Turnier / den Anlass angeben.';
     if (empty($_POST['consent_fide'])) $errors[] = 'Bitte die Weitergabe der Daten an die FIDE bestätigen.';
 
     $form['players'] = [];
@@ -103,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $p = [
             'nachname'     => trim((string)($raw['nachname'] ?? '')),
             'vorname'      => trim((string)($raw['vorname'] ?? '')),
-            'dr'           => !empty($raw['dr']) ? '1' : '',
+            'titel'        => trim((string)($raw['titel'] ?? '')),
             'geburtsdatum' => trim((string)($raw['geburtsdatum'] ?? '')),
             'geschlecht'   => (string)($raw['geschlecht'] ?? ''),
             'dsb'          => !empty($raw['dsb']) ? '1' : '',
@@ -168,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mailBody = "Hallo,\n\n"
             . "hiermit beantrage ich für folgende Spieler eine FIDE-ID:\n\n"
             . implode("\n", $lines) . "\n\n"
-            . 'Turnier / Anlass: ' . oneLine($form['turnier']) . "\n"
+            . ($form['turnier'] !== '' ? 'Turnier / Anlass: ' . oneLine($form['turnier']) . "\n" : '')
             . ($form['verein'] !== '' ? 'Verein: ' . oneLine($form['verein']) . "\n" : '')
             . "\n"
             . "Ich bestätige, dass die Daten an die FIDE weitergegeben werden sollen bzw. die betroffenen Personen der Weitergabe zugestimmt haben.\n"
@@ -180,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             . oneLine($form['antragsteller']) . "\n"
             . $form['email'] . "\n";
 
-        $subject = 'Antrag FIDE-ID - ' . oneLine($form['turnier']);
+        $subject = 'Antrag FIDE-ID' . ($form['turnier'] !== '' ? ' - ' . oneLine($form['turnier']) : '');
         $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
         $headers = [
@@ -221,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$form['players']) {
-        $form['players'][] = ['nachname' => '', 'vorname' => '', 'dr' => '', 'geburtsdatum' => '', 'geschlecht' => '', 'dsb' => '1'];
+        $form['players'][] = ['nachname' => '', 'vorname' => '', 'titel' => '', 'geburtsdatum' => '', 'geschlecht' => '', 'dsb' => '1'];
     }
 }
 ?>
@@ -245,6 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         pre { background: #f4f4f4; padding: 1rem; white-space: pre-wrap; border-radius: 6px; }
         button { padding: .5rem 1rem; cursor: pointer; }
         small { color: #666; }
+        footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ccc; font-size: .85rem; color: #666; }
         @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -294,8 +301,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" id="verein" name="verein" value="<?= h($form['verein']) ?>">
             </div>
         </div>
-        <label for="turnier">Turnier / Anlass *</label>
-        <input type="text" id="turnier" name="turnier" required value="<?= h($form['turnier']) ?>"
+        <label for="turnier">Turnier / Anlass</label>
+        <input type="text" id="turnier" name="turnier" value="<?= h($form['turnier']) ?>"
                placeholder="z. B. 5. Musterstädter Open, 01.–03.11.2026">
     </fieldset>
 
@@ -328,7 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </select>
                         </div>
                     </div>
-                    <label class="check"><input type="checkbox" name="players[<?= $i ?>][dr]" value="1" <?= !empty($p['dr']) ? 'checked' : '' ?>> Doktortitel (Dr.)</label>
+                    <label>Titel</label>
+                    <input type="text" name="players[<?= $i ?>][titel]" value="<?= h($p['titel']) ?>" placeholder="z. B. Dr." style="max-width: 15rem;">
                     <label class="check"><input type="checkbox" name="players[<?= $i ?>][ausland]" value="1" <?= !empty($p['ausland']) ? 'checked' : '' ?>> Ausländischer Spieler</label>
                     <label class="check"><input type="checkbox" class="dsb" name="players[<?= $i ?>][dsb]" value="1" onchange="toggleUpload(this)" <?= !empty($p['dsb']) ? 'checked' : '' ?>> Mitglied in einem Verein des DSB</label>
                     <div class="upload" style="<?= !empty($p['dsb']) ? 'display:none' : '' ?>">
@@ -385,6 +393,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 </script>
 <?php endif; ?>
+
+<footer>
+    <p>
+        <strong>Hinweis:</strong> Dies ist kein offizielles Angebot des Deutschen Schachbundes (DSB) oder der FIDE,
+        sondern ein Spaßprojekt des Schachvereins Balingen. Es wird keinerlei Gewährleistung oder Haftung
+        für Richtigkeit, Vollständigkeit oder Verfügbarkeit übernommen.
+        <?php if (TEST_MODE): ?>Es wird keine E-Mail verschickt.<?php endif; ?>
+    </p>
+</footer>
 
 </body>
 </html>
